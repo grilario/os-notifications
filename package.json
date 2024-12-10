@@ -11,7 +11,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "date-fns": "^4.1.0",
     "firebase": "^11.0.2",
+    "html-table-to-json": "^1.0.0",
     "puppeteer": "^23.10.2"
   }
 }
