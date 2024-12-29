@@ -1,48 +1,52 @@
 /** @import { Order } from './public.js'*/
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, deleteDoc, doc, writeBatch, addDoc, setDoc } from "firebase/firestore";
+import { readFile } from "node:fs/promises";
+import { initializeApp, cert } from "firebase-admin/app";
+import { getMessaging } from "firebase-admin/messaging";
+import { getFirestore } from "firebase-admin/firestore";
 
-const firebaseConfig = {
-  apiKey: process.env.FIREBASE_APIKEY,
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.FIREBASE_APP_ID,
-};
+const key = JSON.parse(
+  await readFile(new URL("../account-key.json", import.meta.url)),
+);
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app)
+const app = initializeApp({
+  credential: cert(key),
+});
 
-await signInWithEmailAndPassword(auth, process.env.FIREBASE_USER, process.env.FIREBASE_PASSWORD)
-
+const messaging = getMessaging(app);
+const database = getFirestore(app);
 
 /**
- * @param {Array.<Order>} orders  
+ * @param {Array.<Order>} orders
  */
 export async function setPendingOrders(orders) {
-  const peddingCollection = collection(db, "pendingOrders")
+  const query = await database.collection("pendingOrders").get();
 
   // Delete all documents
-  const query = await getDocs(peddingCollection);
+  {
+    const batch = database.batch();
+    query.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+  }
 
-  const batch = writeBatch(db)
-  query.docs.forEach(doc => {
-    batch.delete(doc.ref)
-  })
-  await batch.commit()
+  // Add new documents
+  {
+    const collection = database.collection("pendingOrders").doc();
+    const batch = database.batch();
 
-  const documents = orders.map(order => addDoc(peddingCollection, {
-    ord_id: order.gse_ord_id,
-    sec_id: order.gse_sec_id,
-    dep_id: order.gse_dep_id,
-    date: order.data,
-  }))
+    for (const order of orders) {
+      batch.create(collection, {
+        secretariat: order.gse_sec_id,
+        department: order.gse_dep_id,
+        date: order.data,
+      });
+    }
 
-  await Promise.all(documents)
+    await batch.commit();
+  }
 
-  await setDoc(doc(db, "lastUpdatedTime", "BSRX4GZ9FT1Gw9ebptpg"), { updatedAt: new Date() })
+  await database
+    .doc("lastUpdatedTime/BSRX4GZ9FT1Gw9ebptpg")
+    .set({ updatedAt: new Date() });
 }
-
