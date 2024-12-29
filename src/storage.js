@@ -32,11 +32,12 @@ export async function setPendingOrders(orders) {
 
   // Add new documents
   {
-    const collection = database.collection("pendingOrders").doc();
     const batch = database.batch();
 
     for (const order of orders) {
-      batch.create(collection, {
+      const collection = database.collection("pendingOrders").doc();
+      batch.set(collection, {
+        id: order.gse_ord_id,
         secretariat: order.gse_sec_id,
         department: order.gse_dep_id,
         date: order.data,
@@ -49,4 +50,21 @@ export async function setPendingOrders(orders) {
   await database
     .doc("lastUpdatedTime/BSRX4GZ9FT1Gw9ebptpg")
     .set({ updatedAt: new Date() });
+}
+
+/**
+ * @param {Order} order
+ */
+export async function sendNotification(order) {
+  messaging.send({
+    notification: {
+      title: "Novo Chamado",
+      body: `${order.gse_dep_id} \n${order.gse_sec_id}`,
+    },
+    topic: "os-notifications",
+  });
+}
+
+function capitalize(s) {
+  String(s[0]).toUpperCase() + String(s).slice(1).toLowerCase();
 }

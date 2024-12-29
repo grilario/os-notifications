@@ -67,8 +67,6 @@ export async function getOrders() {
 
   const list = HtmlTableToJson.parse(htmlList);
 
-  console.log(list.results[0].slice(2));
-
   const orders = list.results[0].slice(2).map((order) => ({
     gse_ord_id: order["Código"],
     gse_sec_id: order["SECRETARIA"],

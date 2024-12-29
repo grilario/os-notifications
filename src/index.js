@@ -1,8 +1,10 @@
 import { getOrders } from "./orders.js";
-import { setPendingOrders } from "./storage.js";
+import { sendNotification, setPendingOrders } from "./storage.js";
 
 const last7Days = new Date();
 last7Days.setDate(last7Days.getDate() - 7);
+
+let ordersCache = [];
 
 async function handleOrders() {
   const orders = await getOrders();
@@ -15,14 +17,22 @@ async function handleOrders() {
     return isPedding && isEmptyTec && isFromLastDay;
   });
 
-  for (const order of pendingOrders) {
+  const newPeddingOrders = pendingOrders.filter(
+    (order) => !ordersCache.includes(order.gse_ord_id),
+  );
+
+  await setPendingOrders(pendingOrders);
+
+  for (const order of newPeddingOrders) {
+    await sendNotification(order);
+
     console.log("Secretaria:", order.gse_sec_id);
     console.log("Local:", order.gse_dep_id);
     console.log("Dia:", order.data.toDateString());
     console.log("Status:", order.status);
   }
 
-  await setPendingOrders(pendingOrders);
+  ordersCache = pendingOrders.map((order) => order.gse_ord_id);
 }
 
 const tenMinutes = 1_000 * 60 * 10;
